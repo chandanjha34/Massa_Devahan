@@ -18,11 +18,12 @@ To create a **trustless, intelligent, and interoperable automotive ecosystem** p
 
 ### **Phase 1 – Foundation (✅ Completed)**
 
-* [x] 0G Storage integration for file & JSON uploads
-* [x] 0G Data Availability (DA) integration for on-chain metadata
-* [x] 0G Compute integration for AI-powered service recommendations
+* [x] Massa Network integration for blockchain compatability
+* [x] Massa Storage integration for on-chain metadata
+* [x] AI Compute integration for AI-powered service recommendations
 * [x] Authentication & Dealer onboarding system
 * [x] Basic NFT-based vehicle tokenization structure
+* [x] Hosted on massa deweb
 
 ---
 
@@ -30,14 +31,14 @@ To create a **trustless, intelligent, and interoperable automotive ecosystem** p
 
 * [ ] Mint **Vehicle NFTs (iNFTs)** representing unique vehicle identities
 * [ ] Bind real-world data: registration, ownership, and insurance metadata
-* [ ] Integrate service centers and dealers as **trusted DA oracles**
+* [ ] Integrate service centers and dealers as **trusted Massa oracles**
 * [ ] Launch verifiable service log dashboard for vehicle owners
 
 ---
 
 ### **Phase 3 – AI & Predictive Intelligence Layer (Q3 2026)**
 
-* [ ] Deploy **Decentralized AI models** (via 0G Compute) for:
+* [ ] Deploy **Decentralized AI models** (via decentralized Compute) for:
 
   * Predictive maintenance
   * Fault diagnosis
@@ -62,7 +63,7 @@ To create a **trustless, intelligent, and interoperable automotive ecosystem** p
 
 * **Zero-Knowledge Proofs (ZKPs)** for privacy-preserving vehicle data verification
 * **Dynamic INFTs** that evolve as vehicles are serviced
-* **Decentralized AI inference** using 0G Compute’s trustless GPU network
+* **Decentralized AI inference** using Decentralized Compute’s trustless GPU network
 * **Cross-protocol interoperability** for a unified automotive Web3 ecosystem
 
 ---
@@ -83,7 +84,7 @@ To become the **decentralized automotive infrastructure standard**, enabling:
 We welcome developers, automotive OEMs, and blockchain researchers to collaborate on:
 
 * Smart contract enhancements
-* 0G network integrations
+* Decentralized network integrations
 * Automotive AI model contributions
 
 ---
@@ -92,10 +93,10 @@ We welcome developers, automotive OEMs, and blockchain researchers to collaborat
 
 | Layer        | Technology                         |
 | ------------ | ---------------------------------- |
-| Blockchain   | 0G Testnet / EVM                   |
-| Compute      | 0G Compute Network                 |
-| Storage      | 0G Storage + Data Availability     |
-| AI Layer     | Decentralized LLM inference via 0G |
+| Blockchain   | Massa Buildnet                     |
+| Compute      | AI Compute Network                 |
+| Storage      | Massa Storage                      |
+| AI Layer     | Decentralized LLM inference        |
 | Backend      | Node.js / Express / MongoDB        |
 | Frontend     | React + Vite                       |
 | Tokenization | ERC-721                            |
@@ -112,12 +113,12 @@ We welcome developers, automotive OEMs, and blockchain researchers to collaborat
 
 ## 📧 Contact & Community
 
-* **Website:** https://og-de-vahan.vercel.app/
+* **Website:** https://devahan.build.half-red.net/
 * **Email:** jha95375@gmail.com
-* **GitHub:** https://github.com/chandanjha34/OG-DeVahan
+* **GitHub:** https://github.com/chandanjha34/Massa_Devahan/
 
 ---
 
-> *Built on 0G — because your vehicle data deserves zero gravity limits.*
+> *Built on Massa Network — because your vehicle data deserves true decentralization.*
 
 ---
