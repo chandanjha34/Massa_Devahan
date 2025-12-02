@@ -1,169 +1,194 @@
-// Vehicle Passport NFT (Massa version)
-// Implements: minting, tokenURI, metadata hash, and service records Storage.
-
-import {
-  Storage,
-  generateEvent,
-  Context,
+// VehiclePassport.ts
+import { 
+  Storage, 
+  Context, 
+  generateEvent, 
 } from "@massalabs/massa-as-sdk";
+import { 
+  Args, 
+  stringToBytes,
+  bytesToString,
+  u64ToBytes,
+  bytesToU64,
+} from '@massalabs/as-types';
 
-// ===========================
-// Storage KEYS (PREFIXES)
-// ===========================
-const TOKEN_COUNTER = "tokenCounter";                   // uint counter
-const OWNER_OF = "ownerOf:";                            // ownerOf:<tokenId>
-const TOKEN_URI = "tokenURI:";                          // tokenURI:<tokenId>
-const METADATA_HASH = "metadataHash:";                  // metadataHash:<tokenId>
-const SERVICE_RECORDS = "serviceRecords:";              // serviceRecords:<tokenId> (JSON array string)
+// ========================================================
+// CONSTANTS (keys are stored as bytes)
+// ========================================================
+const KEY_NAME = "NAME";
+const KEY_SYMBOL = "SYMBOL";
+const KEY_TOKEN_COUNTER = "TOKEN_COUNTER";
 
+const PREFIX_TOKEN_URI = "URI_";
+const PREFIX_OWNER = "OWNER_";
+const PREFIX_RECORD_COUNT = "REC_COUNT_";
+const PREFIX_RECORD_DATA = "REC_DATA_";
 
-// ===========================
-// INIT FUNCTION (REPLACES CONSTRUCTOR)
-// ===========================
-export function init(): void {
-  if (!Storage.has(TOKEN_COUNTER)) {
-    Storage.set(TOKEN_COUNTER, "0");
+// ========================================================
+// CONSTRUCTOR
+// ========================================================
+export function constructor(binaryArgs: StaticArray<u8>): void {
+  // initialize contract metadata and token counter = 0
+  Storage.set(stringToBytes(KEY_NAME), stringToBytes("Vehicle Passport"));
+  Storage.set(stringToBytes(KEY_SYMBOL), stringToBytes("VPASS"));
+  Storage.set(stringToBytes(KEY_TOKEN_COUNTER), u64ToBytes(0));
+}
+
+// ========================================================
+// WRITE FUNCTIONS
+// ========================================================
+
+/**
+ * mint(to: string, tokenUri: string) -> returns tokenId (u64 as bytes)
+ * Args: (toAddress: string, tokenUri: string)
+ */
+export function mint(binaryArgs: StaticArray<u8>): StaticArray<u8> {
+  const args = new Args(binaryArgs);
+  
+  const toAddress = args.nextString().expect("Address argument missing");
+  const tokenUri = args.nextString().expect("URI argument missing");
+
+  // 1. Get current Token ID (u64)
+  const keyCounter = stringToBytes(KEY_TOKEN_COUNTER);
+  let currentTokenId: u64 = 0;
+  if (Storage.has(keyCounter)) {
+    currentTokenId = bytesToU64(Storage.get(keyCounter));
   }
+
+  // 2. Set Ownership
+  const ownerKey = stringToBytes(PREFIX_OWNER + currentTokenId.toString());
+  Storage.set(ownerKey, stringToBytes(toAddress));
+
+  // 3. Set URI
+  const uriKey = stringToBytes(PREFIX_TOKEN_URI + currentTokenId.toString());
+  Storage.set(uriKey, stringToBytes(tokenUri));
+
+  // 4. Increment Counter
+  const nextTokenId = currentTokenId + 1;
+  Storage.set(keyCounter, u64ToBytes(nextTokenId));
+
+  // Return tokenId (as bytes)
+  return u64ToBytes(currentTokenId);
 }
 
+/**
+ * addServiceRecord(tokenId: u64, json: string)
+ * Only owner may add a service record.
+ */
+export function addServiceRecord(binaryArgs: StaticArray<u8>): void {
+  const args = new Args(binaryArgs);
+  
+  const tokenId = args.nextU64().expect("TokenId argument missing");
+  const json = args.nextString().expect("JSON argument missing");
 
-// ===========================
-// GET NEXT TOKEN ID
-// ===========================
-function nextTokenId(): u64 {
-  let counter = U64.parseInt(Storage.get(TOKEN_COUNTER));
-  let tokenId = counter;
-  counter += 1;
-  Storage.set(TOKEN_COUNTER, counter.toString());
-  return tokenId;
-}
-
-
-// ===========================
-// INTERNAL HELPERS
-// ===========================
-function requireTokenExists(tokenId: u64): void {
-  if (!Storage.has(OWNER_OF + tokenId.toString())) {
-    assert(false, "Nonexistent token");
-  }
-}
-
-
-// ===========================
-// MINT
-// ===========================
-export function mint(to: string, tokenURI: string): u64 {
-  assert(to.length > 0, "Invalid address");
-
-  const tokenId = nextTokenId();
-
-  // Set owner
-  Storage.set(OWNER_OF + tokenId.toString(), to);
-
-  // Set tokenURI
-  Storage.set(TOKEN_URI + tokenId.toString(), tokenURI);
-
-  // Initialize empty service record array: "[]"
-  Storage.set(SERVICE_RECORDS + tokenId.toString(), "[]");
-
-  generateEvent(
-    `Minted tokenId=${tokenId} to=${to}`
-  );
-
-  return tokenId;
-}
-
-
-// ===========================
-// READ: tokenURI
-// ===========================
-export function tokenURIOf(tokenId: u64): string {
-  requireTokenExists(tokenId);
-  return Storage.get(TOKEN_URI + tokenId.toString());
-}
-
-
-// ===========================
-// READ: metadata hash
-// ===========================
-export function metadataHashOf(tokenId: u64): string {
-  requireTokenExists(tokenId);
-  return Storage.get(METADATA_HASH + tokenId.toString());
-}
-
-
-// ===========================
-// OWNER OF
-// ===========================
-export function ownerOf(tokenId: u64): string {
-  requireTokenExists(tokenId);
-  return Storage.get(OWNER_OF + tokenId.toString());
-}
-
-
-// ===========================
-// ADD SERVICE RECORD
-// ===========================
-export function addServiceRecord(tokenId: u64, json: string): void {
-  requireTokenExists(tokenId);
+  const ownerKey = stringToBytes(PREFIX_OWNER + tokenId.toString());
+  
+  assert(Storage.has(ownerKey), "Nonexistent token");
+  
+  // Verify Caller is Owner
+  const storedOwnerBytes = Storage.get(ownerKey);
+  const storedOwnerString = bytesToString(storedOwnerBytes);
+  const callerString = Context.caller().toString();
+  
+  assert(storedOwnerString == callerString, "Caller is not token owner");
   assert(json.length > 0, "Empty JSON");
 
-  const key = SERVICE_RECORDS + tokenId.toString();
+  // Manage "array" length
+  const countKey = stringToBytes(PREFIX_RECORD_COUNT + tokenId.toString());
+  let currentCount: u64 = 0;
+  
+  if (Storage.has(countKey)) {
+    currentCount = bytesToU64(Storage.get(countKey));
+  }
 
-  // Read existing JSON array
-  const raw = Storage.get(key);
-  let arr = decodeJsonArray(raw);
+  // Store new record at index = currentCount
+  const dataKey = stringToBytes(PREFIX_RECORD_DATA + tokenId.toString() + "_" + currentCount.toString());
+  Storage.set(dataKey, stringToBytes(json));
 
-  // Append new entry
-  arr.push(json);
+  // Update length
+  const nextCount = currentCount + 1;
+  Storage.set(countKey, u64ToBytes(nextCount));
 
-  // Save back as JSON array
-  Storage.set(key, encodeJsonArray(arr));
-
-  generateEvent(
-    `ServiceRecordAdded tokenId=${tokenId} json=${json}`
-  );
+  // Emit event with useful info (tokenId and index)
+  generateEvent("ServiceRecordAdded tokenId=" + tokenId.toString() + " index=" + currentCount.toString());
 }
 
+// ========================================================
+// READ FUNCTIONS
+// All exported read functions accept binaryArgs and return bytes
+// ========================================================
 
-// ===========================
-// READ: service record count
-// ===========================
-export function getServiceRecordCount(tokenId: u64): u64 {
-  requireTokenExists(tokenId);
-  let arr = decodeJsonArray(Storage.get(SERVICE_RECORDS + tokenId.toString()));
-  return arr.length;
+/**
+ * tokenURI(tokenId: u64) -> string (bytes)
+ * Args: (tokenId: u64)
+ */
+export function tokenURI(binaryArgs: StaticArray<u8>): StaticArray<u8> {
+  const args = new Args(binaryArgs);
+  const tokenId = args.nextU64().expect("TokenId argument missing");
+
+  const ownerKey = stringToBytes(PREFIX_OWNER + tokenId.toString());
+  assert(Storage.has(ownerKey), "Nonexistent token");
+
+  const uriKey = stringToBytes(PREFIX_TOKEN_URI + tokenId.toString());
+  
+  if (!Storage.has(uriKey)) {
+      return stringToBytes("");
+  }
+  return Storage.get(uriKey);
 }
 
+/**
+ * ownerOf(tokenId: u64) -> string (bytes)
+ * Args: (tokenId: u64)
+ */
+export function ownerOf(binaryArgs: StaticArray<u8>): StaticArray<u8> {
+  const args = new Args(binaryArgs);
+  const tokenId = args.nextU64().expect("TokenId argument missing");
 
-// ===========================
-// READ: service record at index
-// ===========================
-export function getServiceRecordAt(tokenId: u64, index: u64): string {
-  requireTokenExists(tokenId);
-  let arr = decodeJsonArray(Storage.get(SERVICE_RECORDS + tokenId.toString()));
-;
-  return arr[index as i32];
+  const ownerKey = stringToBytes(PREFIX_OWNER + tokenId.toString());
+  assert(Storage.has(ownerKey), "Nonexistent token");
+
+  return Storage.get(ownerKey);
 }
 
+/**
+ * getServiceRecordCount(tokenId: u64) -> u64 (bytes)
+ * Args: (tokenId: u64)
+ */
+export function getServiceRecordCount(binaryArgs: StaticArray<u8>): StaticArray<u8> {
+  const args = new Args(binaryArgs);
+  const tokenId = args.nextU64().expect("TokenId argument missing");
 
-// ===========================
-// JSON ARRAY HELPERS
-// (simple Encode/Decode for string[])
-//
-// We store service records as: ["json1","json2",...]
-// ===========================
-function decodeJsonArray(raw: string): Array<string> {
-  if (raw.length == 0) return new Array<string>();
-  return raw
-    .substring(1, raw.length - 1)
-    .split('","')
-    .map<string>((v: string, i: i32): string => {
-      return v.replace('"', "").replace('"', "");
-    });
+  const ownerKey = stringToBytes(PREFIX_OWNER + tokenId.toString());
+  assert(Storage.has(ownerKey), "Nonexistent token");
+
+  const countKey = stringToBytes(PREFIX_RECORD_COUNT + tokenId.toString());
+  if (!Storage.has(countKey)) {
+    return u64ToBytes(0);
+  }
+  return Storage.get(countKey);
 }
 
-function encodeJsonArray(arr: Array<string>): string {
-  if (arr.length == 0) return "[]";
-  return `["${arr.join('","')}"]`;
+/**
+ * getServiceRecordAt(tokenId: u64, index: u64) -> string (bytes)
+ * Args: (tokenId: u64, index: u64)
+ */
+export function getServiceRecordAt(binaryArgs: StaticArray<u8>): StaticArray<u8> {
+  const args = new Args(binaryArgs);
+  const tokenId = args.nextU64().expect("TokenId argument missing");
+  const index = args.nextU64().expect("Index argument missing");
+
+  const ownerKey = stringToBytes(PREFIX_OWNER + tokenId.toString());
+  assert(Storage.has(ownerKey), "Nonexistent token");
+
+  // read count and bounds-check
+  const countKey = stringToBytes(PREFIX_RECORD_COUNT + tokenId.toString());
+  let currentCount: u64 = 0;
+  if (Storage.has(countKey)) {
+    currentCount = bytesToU64(Storage.get(countKey));
+  }
+  assert(index < currentCount, "Index out of bounds");
+
+  const dataKey = stringToBytes(PREFIX_RECORD_DATA + tokenId.toString() + "_" + index.toString());
+  return Storage.get(dataKey);
 }

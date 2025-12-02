@@ -6,7 +6,7 @@ import {
 import 'dotenv/config';
 
 // Paste the address of the deployed contract here
-const CONTRACT_ADDR = 'AS1Msa2er1vxLL68V4DS3yvdRVGPCKLKt1uqembo1rwY9UbNNAgc';
+const CONTRACT_ADDR = 'AS12iAs8AA7CTsxaRA1niJqxR8vtuRpEU4CbgvqM5dCBkyowAXXEn';
 
 // Here we only use the read method of the contract so we don't need an account
 // provider will be a JsonRpcPublicProvider instance

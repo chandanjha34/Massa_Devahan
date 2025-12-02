@@ -13,6 +13,7 @@
     "@0glabs/0g-ts-sdk": "^0.3.1",
     "@massalabs/massa-web3": "^5.3.0",
     "@massalabs/wallet-provider": "^3.3.0",
+    "@massalabs/web3-utils": "^1.4.11",
     "@next/env": "^15.3.4",
     "@reduxjs/toolkit": "^2.9.0",
     "@tailwindcss/vite": "^4.1.11",

@@ -1,9 +1,14 @@
 import React, { createContext, useState, ReactNode, useContext } from "react";
-import { JsonRpcProvider, SmartContract, Args } from "@massalabs/massa-web3";
-import { getWallets } from "@massalabs/wallet-provider";
+import { 
+  Mas, 
+  SmartContract, 
+  OperationStatus, 
+  Args 
+} from "@massalabs/massa-web3";
+import { getWallets} from "@massalabs/wallet-provider";
 
-const CONTRACT_ADDRESS =
-  "AS1Msa2er1vxLL68V4DS3yvdRVGPCKLKt1uqembo1rwY9UbNNAgc";
+// Your Contract Address
+const CONTRACT_ADDRESS = "AS12iAs8AA7CTsxaRA1niJqxR8vtuRpEU4CbgvqM5dCBkyowAXXEn";
 
 interface NFTContextType {
   currentAccount: string | null;
@@ -12,18 +17,15 @@ interface NFTContextType {
   addServiceRecord: (tokenId: bigint, json: string) => Promise<string>;
 }
 
-export const NFTContext = createContext<NFTContextType | undefined>(
-  undefined
-);
+export const NFTContext = createContext<NFTContextType | undefined>(undefined);
 
 export const NFTProvider = ({ children }: { children: ReactNode }) => {
   const [currentAccount, setCurrentAccount] = useState<string | null>(null);
+  // We store the full Account object to use it as a provider
   const [walletAccount, setWalletAccount] = useState<any | null>(null);
 
-  const rpc = JsonRpcProvider.buildnet();
-
   // -------------------------------------------------
-  // Connect to wallet (Bearby / Station)
+  // Connect Wallet
   // -------------------------------------------------
   const connectWallet = async () => {
     const wallets = await getWallets();
@@ -43,49 +45,75 @@ export const NFTProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // -------------------------------------------------
-  // Write call helper: use walletAccount.callSC
+  // Mint Function
   // -------------------------------------------------
-const callContract = async (fn: string, argsHex: string): Promise<string> => {
-  if (!walletAccount) throw new Error("Wallet not connected");
+  const mint = async (to: string, tokenURI: string): Promise<string> => {
+    if (!walletAccount) throw new Error("Wallet not connected");
 
-  return await walletAccount.callSC({
-    targetAddress: CONTRACT_ADDRESS,
-    functionName: fn,
-    parameter: argsHex,      // MUST be hex string
-    maxGas: 1_000_000_000n,
-    coins: 0n,
-  });
-};
+    console.log('Minting NFT...', { to, tokenURI });
 
+    // 1. Create Arguments
+    const args = new Args()
+      .addString(to)
+      .addString(tokenURI);
 
-  const toBase64 = (bytes: Uint8Array): string =>
-  Buffer.from(bytes).toString("base64");
+    // 2. Initialize Contract Wrapper
+    const contract = new SmartContract(walletAccount, CONTRACT_ADDRESS);
+
+    // 3. Send Transaction
+    // We add 0.1 MAS for storage fees to be safe
+    const operation = await contract.call(
+      'mint',
+      args,
+      { coins: Mas.fromString("1") } 
+    );
+
+    console.log('Mint submitted, OpId:', operation.id);
+
+    // 4. Wait for Final Execution (Robustness)
+    const status = await operation.waitFinalExecution();
+    
+    if (status !== OperationStatus.Success) {
+      throw new Error("Mint transaction failed on-chain");
+    }
+
+    console.log('Mint confirmed!');
+    return operation.id;
+  };
 
   // -------------------------------------------------
-  // Mint
-  // -------------------------------------------------
- const mint = async (to: string, tokenURI: string): Promise<string> => {
-  const argsBytes = new Args()
-    .addString(to)
-    .addString(tokenURI)
-    .serialize();   // ✅ correct
-
-  const hexStr = "0x" + Buffer.from(argsBytes).toString("hex");
-
-  return await callContract("mint", hexStr);
-};
-
-
-  // -------------------------------------------------
-  // Add service record
+  // Add Service Record
   // -------------------------------------------------
   const addServiceRecord = async (
     tokenId: bigint,
     json: string
   ): Promise<string> => {
-    const argsBytes = new Args().addU64(tokenId).addString(json).serialize();
-    const hexStr = "0x" + Buffer.from(argsBytes).toString("hex");
-    return await callContract("addServiceRecord", hexStr);
+    if (!walletAccount) throw new Error("Wallet not connected");
+
+    console.log('Adding Service Record...', { tokenId, json });
+
+    const args = new Args()
+      .addU64(tokenId)
+      .addString(json);
+
+    const contract = new SmartContract(walletAccount, CONTRACT_ADDRESS);
+
+    const operation = await contract.call(
+      'addServiceRecord',
+      args,
+      { coins: Mas.fromString("0.1") }
+    );
+
+    console.log('Record submitted, OpId:', operation.id);
+
+    const status = await operation.waitFinalExecution();
+
+    if (status !== OperationStatus.Success) {
+      throw new Error("Add Service Record transaction failed");
+    }
+
+    console.log('Service Record confirmed!');
+    return operation.id;
   };
 
   return (
